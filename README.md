@@ -19,7 +19,7 @@ Aplikasi web ini dapat:
 - **Styling**: CSS dengan gradient dan animasi
 
 ## 📁 Struktur Dataset
-
+Download dataset terlebih dahulu : https://www.kaggle.com/datasets/jr2ngb/cataractdataset
 Pastikan struktur dataset Anda seperti berikut:
 ```
 dataset/
@@ -164,9 +164,6 @@ Lihat file [`requirements.txt`](requirements.txt) untuk daftar lengkap dependenc
 - scikit-image==0.21.0
 - scikit-learn==1.3.0
 - numpy==1.24.3
-- Pillow==10.0.0
-- Werkzeug==2.3.7
-- matplotlib==3.7.2
 
 ## 🚪 Keluar dari Virtual Environment
 
