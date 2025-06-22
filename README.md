@@ -19,7 +19,7 @@ Aplikasi web ini dapat:
 - **Styling**: CSS dengan gradient dan animasi
 
 ## 📁 Struktur Dataset
-Download dataset terlebih dahulu : https://www.kaggle.com/datasets/jr2ngb/cataractdataset
+Download dataset terlebih dahulu : https://www.kaggle.com/datasets/nandanp6/cataract-image-dataset
 Pastikan struktur dataset Anda seperti berikut:
 ```
 dataset/
