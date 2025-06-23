@@ -29,17 +29,15 @@ def extract_color_features(image):
     
     #histogram dengan 32 bins (reduksi dari 256 untuk efisiensi)
     hist_g = cv2.calcHist([green_channel], [0], None, [32], [0, 256]).flatten()
+    #Histogram: [8, 15, 22, 28, 35, 30, 25, 18, 12, 8, 5, 2, ...]
+    #Histogram: [2, 3, 5, 8, 12, 18, 25, 35, 45, 38, 28, 15, ...]
     
     #statistik dasar dari channel hijau
     g_mean, g_std = np.mean(green_channel), np.std(green_channel) 
     g_min, g_max = np.min(green_channel), np.max(green_channel)  
-    
-    #percentile untuk representasi distribusi yang lebih baik
-    g_25 = np.percentile(green_channel, 25)  # Kuartil 1
-    g_75 = np.percentile(green_channel, 75)  # Kuartil 3
-    
+
     #gabungan semua statistik warna
-    color_stats = np.array([g_mean, g_std, g_min, g_max, g_25, g_75])
+    color_stats = np.array([g_mean, g_std, g_min, g_max])
     
     # Gabungkan histogram dan statistik menjadi satu vektor fitur
     return np.concatenate((hist_g, color_stats))
@@ -49,8 +47,9 @@ def extract_texture_features(image):
     distances = [1, 2]           # Jarak pixel yang dianalisis
     angles = [0, np.pi/4]       
     levels = 64                 
-    
-    scaled_image = (image / 256.0 * levels).astype(np.uint8)
+
+    green_channel = image[:,:,1] if len(image.shape) == 3 else image
+    scaled_image = (green_channel / 256.0 * levels).astype(np.uint8)
     scaled_image = np.clip(scaled_image, 0, levels - 1)
     
     glcm = graycomatrix(scaled_image, distances, angles, levels=levels, symmetric=True, normed=True)
@@ -59,8 +58,8 @@ def extract_texture_features(image):
     homogeneity = graycoprops(glcm, 'homogeneity')  # Homogenitas: keseragaman tekstur
     energy = graycoprops(glcm, 'energy')            # Energi: uniformitas pola
     
-    mean_intensity = np.mean(image)  
-    std_intensity = np.std(image)   
+    mean_intensity = np.mean(green_channel)  
+    std_intensity = np.std(green_channel)   
     
     texture_stats = np.array([mean_intensity, std_intensity])
     
@@ -93,21 +92,15 @@ def augment_image(image):
     return augmented_images
 
 def preprocess_image(image):
-
     resized = cv2.resize(image, (300, 300))
     
     rgb_img = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-    gray_img = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
     
-    # Peningkatan kontras menggunakan CLAHE (Contrast Limited Adaptive Histogram Equalization)
-   
-    clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8))
-    gray_img = clahe.apply(gray_img)
-        
     # Terapkan CLAHE pada green channel untuk citra RGB
+    clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8))
     rgb_img[:,:,1] = clahe.apply(rgb_img[:,:,1])
     
-    return rgb_img, gray_img
+    return rgb_img
 
 def load_dataset_from_folders(dataset_path):
     all_color_features = []
@@ -134,9 +127,9 @@ def load_dataset_from_folders(dataset_path):
         
                 augmented_images = augment_image(img)
                 for aug_img in augmented_images:
-                    rgb_img, gray_img = preprocess_image(aug_img)
+                    rgb_img = preprocess_image(aug_img)  
                     color_features = extract_color_features(rgb_img)
-                    texture_features = extract_texture_features(gray_img)
+                    texture_features = extract_texture_features(rgb_img)
                         
                     all_color_features.append(color_features)
                     all_texture_features.append(texture_features)
@@ -154,9 +147,9 @@ def load_dataset_from_folders(dataset_path):
 
                 augmented_images = augment_image(img)
                 for aug_img in augmented_images:
-                    rgb_img, gray_img = preprocess_image(aug_img)
+                    rgb_img = preprocess_image(aug_img) 
                     color_features = extract_color_features(rgb_img)
-                    texture_features = extract_texture_features(gray_img)
+                    texture_features = extract_texture_features(rgb_img)
                        
                     all_color_features.append(color_features)
                     all_texture_features.append(texture_features)
@@ -529,10 +522,12 @@ def load_model_components():
             return False, f"Model not found or corrupted: {str(e)}. Please train the model first."
     return True, None
 
-def extract_glcm_info(gray_img):
-
+def extract_glcm_info(rgb_img):
     levels = 64
-    scaled_gray = (gray_img / 256.0 * levels).astype(np.uint8)
+    # Gunakan green channel dari RGB
+    green_channel = rgb_img[:,:,1]
+        
+    scaled_gray = (green_channel / 256.0 * levels).astype(np.uint8)
     scaled_gray = np.clip(scaled_gray, 0, levels - 1)
     
     glcm = graycomatrix(scaled_gray, [1, 2], [0, np.pi/4], levels=levels, symmetric=True, normed=True)
@@ -553,15 +548,15 @@ def predict_image_core(img, include_glcm_info=False):
         return None, error_msg
     
     try:
-        # Preprocessing gambar
-        rgb_img, gray_img = preprocess_image(img)
+        # Preprocessing gambar - hanya RGB
+        rgb_img = preprocess_image(img)
 
-        # Ekstraksi fitur warna dan tekstur
+        # Ekstraksi fitur warna dan tekstur (keduanya menggunakan green channel)
         color_features = extract_color_features(rgb_img)
-        texture_features = extract_texture_features(gray_img)
+        texture_features = extract_texture_features(rgb_img)
 
-        # Ekstraksi GLCM info jika diperlukan
-        glcm_info = extract_glcm_info(gray_img) if include_glcm_info else None
+        # Ekstraksi GLCM info jika diperlukan (gunakan RGB untuk akses green channel)
+        glcm_info = extract_glcm_info(rgb_img) if include_glcm_info else None
         
         # Normalisasi fitur menggunakan scaler yang sudah dilatih
         scaled_color_features = color_scaler.transform([color_features])
